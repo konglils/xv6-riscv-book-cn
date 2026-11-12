@@ -38,7 +38,7 @@ end_op();
 
 [`begin_op`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L129) 会一直等到日志系统没有在提交，并且有足够的日志空间来容纳这次调用的写。`log.outstanding` 统计当前系统调用的数量，可以通过 `log.outstanding` 乘以 `MAXOPBLOCKS` 来计算已使用的日志空间。自增 `log.outstanding` 既能预留空间，又能防止该系统调用期间进行提交。该代码假设每次系统调用最多写入 `MAXOPBLOCKS` 个块。
 
-[`log_write`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L224) 是 `bwrite` 的代理。它将块号记录在内存中，在磁盘上的日志中使用一个槽，并把该缓冲区固定在块缓存中，防止它被逐出。在提交之前，块必须留在缓存中，即该缓存的副本是修改的唯一记录；在提交之后才能将其写入磁盘上的位置；该次修改必须对其他读可见。注意，当一个块在一个事务中被多次写入时，它们在日志中的槽是相同的。这种优化通常被称为**吸收（absorption）**。例如，在一个事务中，包含多个文件 inode 的磁盘块被写多次，这是常见的情况。通过将几次磁盘写吸收为一次，文件系统可以节省日志空间，并且可以获得更好的性能，因为只有一份磁盘块的副本必须写入磁盘。
+[`log_write`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L224) 是 `bwrite` 的代理。它将块号记录在内存中，在磁盘上的日志中使用一个槽，并把该缓冲区固定在块缓存中，防止它被踢出。在提交之前，块必须留在缓存中，即该缓存的副本是修改的唯一记录；在提交之后才能将其写入磁盘上的位置；该次修改必须对其他读可见。注意，当一个块在一个事务中被多次写入时，它们在日志中的槽是相同的。这种优化通常被称为**吸收（absorption）**。例如，在一个事务中，包含多个文件 inode 的磁盘块被写多次，这是常见的情况。通过将几次磁盘写吸收为一次，文件系统可以节省日志空间，并且可以获得更好的性能，因为只有一份磁盘块的副本必须写入磁盘。
 
 [`end_op`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L155) 首先递减 `log.outstanding`。如果计数为零，则通过调用 `commit()` 来提交当前事务。Commit 分为四个阶段：1、[`write_log()`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L188) 将事务中修改的每个块从 buffer 缓存中复制到磁盘上的日志槽中。2、[`write_head()`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L105) 将 header 块写到磁盘上，就表明已提交，这是提交点，写完日志后的崩溃，会导致在重启后重新执行日志。3、[`install_trans`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/log.c#L68) 从日志中读取每个块，并将其写到文件系统中对应的位置。4、最后修改日志块计数为 0，并写入日志空间的 header 部分。这必须在下一个事务开始之前完成，这样崩溃就不会导致重启后的恢复使用这次的 header 和下次的日志块。
 
