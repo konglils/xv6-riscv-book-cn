@@ -10,21 +10,21 @@
 
 ## 目录
 
-[前言与致谢（Foreword and acknowledgments）](acks.md)
-[第一章：操作系统接口（Operating system interfaces）](01-unix.md)
-[第二章：操作系统组织（Operating system organization）](02-first.md)
-[第三章：页表（Page tables）](03-mem.md)
-[第四章：陷阱和系统调用（Traps and system calls）](04-trap.md)
-[第五章：缺页异常（Page faults）](05-pgfault.md)
-[第六章：中断和设备驱动（Interrupts and device drivers）](06-interrupt.md)
-[第七章：锁（Locking）](07-lock.md)
-[第八章：调度（Scheduling）](08-sched.md)
-[第九章：睡眠与唤醒（Sleep and Wakeup）](09-sleep.md)
-[第十章：文件系统（File system）](10-fs.md)
-[第十一章：日志（Logging）](11-log.md)
-[第十二章：再论并发（Concurrency revisited）](12-lock2.md)
-[第十三章：总结（Summary）](13-sum.md)
-[参考文献（References）](references.md)
+- [前言与致谢（Foreword and acknowledgments）](acks.md)
+- [第一章：操作系统接口（Operating system interfaces）](01-unix.md)
+- [第二章：操作系统组织（Operating system organization）](02-first.md)
+- [第三章：页表（Page tables）](03-mem.md)
+- [第四章：陷阱和系统调用（Traps and system calls）](04-trap.md)
+- [第五章：缺页异常（Page faults）](05-pgfault.md)
+- [第六章：中断和设备驱动（Interrupts and device drivers）](06-interrupt.md)
+- [第七章：锁（Locking）](07-lock.md)
+- [第八章：调度（Scheduling）](08-sched.md)
+- [第九章：睡眠与唤醒（Sleep and Wakeup）](09-sleep.md)
+- [第十章：文件系统（File system）](10-fs.md)
+- [第十一章：日志（Logging）](11-log.md)
+- [第十二章：再论并发（Concurrency revisited）](12-lock2.md)
+- [第十三章：总结（Summary）](13-sum.md)
+- [参考文献（References）](references.md)
 
 ## 参考
 
