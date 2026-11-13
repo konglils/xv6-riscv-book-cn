@@ -10,7 +10,7 @@
 
 *图 3.1：扁平页表把虚拟地址映射到物理地址的抽象视图。*
 
-Xv6 使用 RISC-V 的 Sv39 模式，这意味着只会使用 64 位虚拟地址的低 39 位；高 25 位没有被使用。在这种 Sv39 配置中，一个 RISC-V 页表在逻辑上是一个由 2²⁷（134,217,728）个**页表项（Page Table Entry，PTE）**组成的数组。每个 PTE 包含一个 44 位的**物理页号（Physical Page Number，PPN）**和一些标志位。分页硬件用这 39 位中的高 27 位索引页表找到一个 PTE，从而转换一个虚拟地址，并生成一个 56 位的物理地址：它的高 44 位来自 PTE 中的 PPN，低 12 位则从原来的虚拟地址复制而来。图 3.1 展示了这个过程，它把页表逻辑上看成一个简单的 PTE 数组（RISC-V 的页表实际上是一棵树，更完整的描述见图 3.2）。页表让操作系统能够以 4096（2¹²）字节的对齐块为粒度，控制虚拟地址到物理地址的转换。这样的一个块称为一个页。
+Xv6 使用 RISC-V 的 Sv39 模式，这意味着只会使用 64 位虚拟地址的低 39 位；高 25 位没有被使用。在这种 Sv39 配置中，一个 RISC-V 页表在逻辑上是一个由 2²⁷（134,217,728）个*页表项（Page Table Entry，PTE）*组成的数组。每个 PTE 包含一个 44 位的*物理页号（Physical Page Number，PPN）*和一些标志位。分页硬件用这 39 位中的高 27 位索引页表找到一个 PTE，从而转换一个虚拟地址，并生成一个 56 位的物理地址：它的高 44 位来自 PTE 中的 PPN，低 12 位则从原来的虚拟地址复制而来。图 3.1 展示了这个过程，它把页表逻辑上看成一个简单的 PTE 数组（RISC-V 的页表实际上是一棵树，更完整的描述见图 3.2）。页表让操作系统能够以 4096（2¹²）字节的对齐块为粒度，控制虚拟地址到物理地址的转换。这样的一个块称为一个页。
 
 ![Figure 3.2](fig/riscv_pagetable.svg)
 
@@ -20,11 +20,11 @@ RISC-V 的设计为虚拟地址和物理地址的扩展都留出了余地。如�
 
 如图 3.2 所示，RISC-V CPU 的页表以三层树的形式存储在物理内存中。树的根是一个 4096 字节的页表页，其中包含 512 个 PTE，这些 PTE 给出树中下一级页表页的物理地址。下一级的每个页都包含 512 个 PTE，指向树中最后一级。分页硬件用 27 位中的高 9 位选择根页表页中的 PTE，用中间 9 位选择树中下一级页表页中的 PTE，用低 9 位选择最终的那个 PTE。（在 Sv48 的 RISC-V 中，页表有四层，虚拟地址的第 39 到 47 位用于索引最高一层。）
 
-如果转换一个地址所需的三个 PTE 中任何一个不存在，分页硬件就会引发一个**缺页异常（page-fault exception）**，交给内核来处理这个缺页异常（见第 4 章和第 5 章）。
+如果转换一个地址所需的三个 PTE 中任何一个不存在，分页硬件就会引发一个*缺页异常（page-fault exception）*，交给内核来处理这个缺页异常（见第 4 章和第 5 章）。
 
 与图 3.1 的单层设计相比，图 3.2 的三层结构提供了一种更节省内存的 PTE 记录方式。在大范围虚拟地址没有映射这种常见情况下，三层结构可以省略整个页目录。例如，如果一个应用只使用从地址零开始的少数几页，那么顶层页目录的第 1 到 511 项都是无效的，内核不必为这 511 个中间页目录分配页。进一步说，内核也不必为这 511 个中间页目录所对应的底层页目录分配页。因此在这个例子中，三层设计为中间页目录节省了 511 页，为底层页目录节省了 511×512 页。
 
-CPU 在执行 load 或 store 指令时会在硬件中遍历这个三层结构，但三层结构的一个潜在缺点是：CPU 必须从内存读取三个 PTE，才能把 load/store 指令中的虚拟地址转换成物理地址。为了避免从物理内存读取 PTE 的开销，RISC-V CPU 把页表项缓存到**翻译后备缓冲器（Translation Look-aside Buffer，TLB）**中。
+CPU 在执行 load 或 store 指令时会在硬件中遍历这个三层结构，但三层结构的一个潜在缺点是：CPU 必须从内存读取三个 PTE，才能把 load/store 指令中的虚拟地址转换成物理地址。为了避免从物理内存读取 PTE 的开销，RISC-V CPU 把页表项缓存到*翻译后备缓冲器（Translation Look-aside Buffer，TLB）*中。
 
 每个 PTE 都包含标志位，用于告诉分页硬件相关的虚拟地址允许怎样使用。`PTE_V` 表示该 PTE 是否存在：如果没有设置，对该页的引用会引起缺页异常（即不允许）。`PTE_R` 控制是否允许指令读取该页。`PTE_W` 控制是否允许指令向该页写入。`PTE_X` 控制 CPU 是否可以将页面的内容解释为指令并执行。`PTE_U` 控制用户模式下的指令是否允许访问该页；如果不设置 `PTE_U`，该 PTE 只能在监管模式（supervisor mode）下使用。图 3.2 显示了标志位在 PTE 中的位置。标志位以及与分页硬件相关的其他数据结构定义在 [`kernel/riscv.h`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/riscv.h) 中。
 
@@ -32,7 +32,7 @@ CPU 在执行 load 或 store 指令时会在硬件中遍历这个三层结构，
 
 从内核的角度看，页表是存放在内存中的数据，内核用创建和修改树状数据结构时常见的代码来创建和修改页表。
 
-关于本书中术语的几点说明。**物理内存**指的是 RAM 中的存储单元。物理内存的一个字节有一个地址，称为**物理地址**。解引用地址的指令（如 load、store、跳转和函数调用）只使用虚拟地址，分页硬件把这些虚拟地址翻译成物理地址，然后交给 RAM 硬件去读写存储。**地址空间**是在给定页表中有效的虚拟地址的集合；每个 xv6 进程都有一个单独的用户地址空间，xv6 内核也有自己的地址空间。**用户内存**指的是一个进程的用户地址空间，加上页表允许该进程访问的物理内存。**虚拟内存**指的是与页表管理相关的各种思想和技术，以及利用它们实现隔离等目标的方法。
+关于本书中术语的几点说明。*物理内存*指的是 RAM 中的存储单元。物理内存的一个字节有一个地址，称为*物理地址*。解引用地址的指令（如 load、store、跳转和函数调用）只使用虚拟地址，分页硬件把这些虚拟地址翻译成物理地址，然后交给 RAM 硬件去读写存储。*地址空间*是在给定页表中有效的虚拟地址的集合；每个 xv6 进程都有一个单独的用户地址空间，xv6 内核也有自己的地址空间。*用户内存*指的是一个进程的用户地址空间，加上页表允许该进程访问的物理内存。*虚拟内存*指的是与页表管理相关的各种思想和技术，以及利用它们实现隔离等目标的方法。
 
 ![Figure 3.3](fig/xv6_layout.svg)
 
@@ -42,7 +42,7 @@ CPU 在执行 load 或 store 指令时会在硬件中遍历这个三层结构，
 
 启动时，xv6 创建一个单独的页表来描述内核的地址空间。内核配置其地址空间的布局，使自己能够在可预测的虚拟地址上访问物理内存和各种硬件资源。图 3.3 显示了这种布局如何将内核虚拟地址映射到物理地址。文件 [`kernel/memlayout.h`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/memlayout.h) 声明了 xv6 内核内存布局的常量。
 
-QEMU 模拟的计算机包含 RAM（物理内存），从物理地址 `0x80000000` 开始，至少延伸到 `0x88000000`，xv6 称之为 `PHYSTOP`。QEMU 模拟还包括 I/O 设备，如磁盘接口。QEMU 将设备接口作为**内存映射（memory-mapped）**的控制寄存器暴露给软件，这些寄存器位于物理地址空间的 `0x80000000` 以下。内核可以通过读取/写入这些特殊的物理地址与设备交互；这种读取和写入与设备硬件而不是与 RAM 通信。第 4 章解释了 xv6 如何与设备交互。
+QEMU 模拟的计算机包含 RAM（物理内存），从物理地址 `0x80000000` 开始，至少延伸到 `0x88000000`，xv6 称之为 `PHYSTOP`。QEMU 模拟还包括 I/O 设备，如磁盘接口。QEMU 将设备接口作为*内存映射（memory-mapped）*的控制寄存器暴露给软件，这些寄存器位于物理地址空间的 `0x80000000` 以下。内核可以通过读取/写入这些特殊的物理地址与设备交互；这种读取和写入与设备硬件而不是与 RAM 通信。第 4 章解释了 xv6 如何与设备交互。
 
 内核把所有物理 RAM 和设备寄存器映射到与物理地址相同的虚拟地址上。这称为“直接映射”，它让内核只需读写虚拟地址 x 就能读写物理地址 x。内核代码本身在虚拟地址空间和物理内存中都位于 `KERNBASE=0x80000000`。当 [`kfork`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/proc.c#L259) 为子进程分配用户内存时，分配器返回该内存的物理地址；`kfork` 在把父进程的用户内存复制到子进程时，直接把这个地址当作虚拟地址使用。
 
@@ -50,7 +50,7 @@ QEMU 模拟的计算机包含 RAM（物理内存），从物理地址 `0x8000000
 
 - trampoline 页。它被映射在虚拟地址空间的顶端；用户页表也有同样的映射。第 4 章讨论 trampoline 页的作用，但我们在这里看到页表的一个有趣用例：一个（存放 trampoline 代码的）物理页在内核的虚拟地址空间中被映射了两次，一次在虚拟地址空间的顶端，一次是直接映射。
 
-- 内核栈页。每个进程都有自己的内核栈，它被映射到一个较高的内核虚拟地址，这样 xv6 就可以在它下方留出一个未映射的**保护页（guard page）**。保护页的 PTE 是无效的（即没有设置 `PTE_V`），因此如果内核溢出某一个内核栈，很可能会引发缺页异常，内核会 panic。没有保护页的话，栈溢出会覆盖其他内核内存，导致不正确的操作。崩溃（panic）反而更好。
+- 内核栈页。每个进程都有自己的内核栈，它被映射到一个较高的内核虚拟地址，这样 xv6 就可以在它下方留出一个未映射的*保护页（guard page）*。保护页的 PTE 是无效的（即没有设置 `PTE_V`），因此如果内核溢出某一个内核栈，很可能会引发缺页异常，内核会 panic。没有保护页的话，栈溢出会覆盖其他内核内存，导致不正确的操作。崩溃（panic）反而更好。
 
 内核通过高地址映射使用它的各个栈，但每个栈也可以通过直接映射的地址被内核访问。另一种设计可能只保留直接映射，并在直接映射的地址上使用这些栈。不过在这种安排下，提供保护页就得取消映射一些本来指向物理内存的虚拟地址，而这些地址之后会很难使用。
 
@@ -74,7 +74,7 @@ QEMU 模拟的计算机包含 RAM（物理内存），从物理地址 `0x8000000
 
 在每个 CPU 上，`main` 调用 [`kvminithart`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/vm.c#L75) 来安装内核页表，它把根页表页的物理地址放入该 CPU 的 `satp` 寄存器。在这之后，CPU 就使用内核页表翻译地址。内核仍然能正确执行，因为内核页表是直接映射的，所以在这一改变前后，地址都指向 RAM 中的同一位置。
 
-每个 RISC-V CPU 都会在 TLB 中缓存页表项，当 xv6 改变页表时，必须告诉 CPU 使相应的缓存 TLB 项无效。否则，在之后的某个时刻，TLB 可能会使用一个旧的缓存映射，指向一个在此期间已被分配给另一个进程的物理页，结果一个进程可能得以在另一个进程的内存上乱写。RISC-V 有一条指令 `sfence.vma`，用于刷新当前 CPU 的 TLB。xv6 在 `kvminithart` 中重新加载 `satp` 寄存器之后执行 `sfence.vma`，并在 `uservec` 和 `userret` 的 trampoline 代码中执行 `sfence.vma`。
+每个 RISC-V CPU 都会在 *TLB* 中缓存页表项，当 xv6 改变页表时，必须告诉 CPU 使相应的缓存 TLB 项无效。否则，在之后的某个时刻，TLB 可能会使用一个旧的缓存映射，指向一个在此期间已被分配给另一个进程的物理页，结果一个进程可能得以在另一个进程的内存上乱写。RISC-V 有一条指令 `sfence.vma`，用于刷新当前 CPU 的 TLB。xv6 在 `kvminithart` 中重新加载 `satp` 寄存器之后执行 `sfence.vma`，并在 `uservec` 和 `userret` 的 trampoline 代码中执行 `sfence.vma`。
 
 在改变 `satp` 之前也需要执行 `sfence.vma`，以等待所有尚未完成的 load 和 store 完成。这个等待确保此前对页表的更新已经完成，并确保此前的 load 和 store 使用的是旧页表而不是新页表。
 
@@ -88,7 +88,7 @@ xv6 使用内核结束处到 `PHYSTOP` 之间的物理内存进行运行时分�
 
 ### 3.5 代码：物理内存分配器
 
-分配器位于 [`kalloc.c`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c) 中。分配器的数据结构是一个可供分配的物理内存页的**空闲链表**。每个空闲页的“next”指针存放在一个 [`struct run`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c#L17) 中。分配器把每个空闲页的 `run` 结构体放在该空闲页自身里，因为该页空闲时没有别的东西存放在那里。空闲链表由一把自旋锁保护（[kalloc.c:21-24](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c#L21-L24)）。链表和锁被包裹在一个结构体中，以明确锁保护的是结构体中的字段。现在请忽略锁以及对 `acquire` 和 `release` 的调用；第 7 章将详细研究锁。
+分配器位于 [`kalloc.c`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c) 中。分配器的数据结构是一个可供分配的物理内存页的*空闲链表*。每个空闲页的“next”指针存放在一个 [`struct run`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c#L17) 中。分配器把每个空闲页的 `run` 结构体放在该空闲页自身里，因为该页空闲时没有别的东西存放在那里。空闲链表由一把自旋锁保护（[kalloc.c:21-24](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c#L21-L24)）。链表和锁被包裹在一个结构体中，以明确锁保护的是结构体中的字段。现在请忽略锁以及对 `acquire` 和 `release` 的调用；第 7 章将详细研究锁。
 
 函数 `main` 调用 `kinit` 来初始化分配器（[kalloc.c:27](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/kalloc.c#L27)）。`kinit` 初始化空闲链表，使其保存内核结束处到 `PHYSTOP` 之间的每一个物理 RAM 页。xv6 本应通过解析硬件提供的配置信息来确定有多少物理内存可用，但实际上它假设机器有 128 兆字节的 RAM。`kinit` 调用 `freerange` 通过对每一页调用 `kfree` 把内存加入空闲链表。一个 PTE 只能引用按 4096 字节边界对齐（是 4096 的倍数）的物理地址，因此 `freerange` 用 `PGROUNDUP` 确保它只释放对齐的物理地址。分配器一开始没有任何内存；这些对 `kfree` 的调用给了它一些可管理的内存。
 
@@ -122,7 +122,7 @@ xv6 使用内核结束处到 `PHYSTOP` 之间的物理内存进行运行时分�
 
 请阅读 [`kernel/exec.c`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/exec.c) 和 [`kernel/vm.c`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/vm.c) 中从 `uvmcreate()` 开始的部分。
 
-`exec` 是一个系统调用，它用一个从文件中读出的数据替换进程的用户地址空间，这个文件称为二进制文件或可执行文件。二进制文件通常是编译器和链接器的输出，包含机器指令和程序数据。[`kexec`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/exec.c#L28) 是 `exec` 在内核中的内部实现，它用 [`namei`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/exec.c#L42) 打开名为 `path` 的二进制文件，第 10 章会解释 `namei`。然后，它读取 ELF 头。xv6 的二进制文件采用广泛使用的 **ELF 格式**，定义在 [`kernel/elf.h`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h) 中。一个 ELF 二进制文件由一个 ELF 头 [`struct elfhdr`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h#L6) 和随后的一串程序段头 [`struct proghdr`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h#L25) 组成。每个 `proghdr` 描述应用的一个必须加载到内存中的段；xv6 程序有两个程序段头：一个用于指令，一个用于数据。
+`exec` 是一个系统调用，它用一个从文件中读出的数据替换进程的用户地址空间，这个文件称为二进制文件或可执行文件。二进制文件通常是编译器和链接器的输出，包含机器指令和程序数据。[`kexec`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/exec.c#L28) 是 `exec` 在内核中的内部实现，它用 [`namei`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/exec.c#L42) 打开名为 `path` 的二进制文件，第 10 章会解释 `namei`。然后，它读取 ELF 头。xv6 的二进制文件采用广泛使用的 *ELF 格式*，定义在 [`kernel/elf.h`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h) 中。一个 ELF 二进制文件由一个 ELF 头 [`struct elfhdr`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h#L6) 和随后的一串程序段头 [`struct proghdr`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h#L25) 组成。每个 `proghdr` 描述应用的一个必须加载到内存中的段；xv6 程序有两个程序段头：一个用于指令，一个用于数据。
 
 第一步是快速检查文件大概率包含一个 ELF 二进制文件。一个 ELF 二进制文件以四个字节的“魔法数字” `0x7F`、`E'`、`L'`、`F'` 或 [`ELF_MAGIC`](https://github.com/mit-pdos/xv6-riscv/blob/riscv/kernel/elf.h#L3) 开始。如果 ELF 头有正确的魔法数字，`kexec` 就认为该二进制文件格式正确。
 
