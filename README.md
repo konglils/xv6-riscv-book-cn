@@ -25,6 +25,7 @@
 - [第十二章：再论并发（Concurrency revisited）](12-lock2.md)
 - [第十三章：总结（Summary）](13-sum.md)
 - [参考文献（References）](references.md)
+- [术语翻译表（Glossary）](glossary.md)
 
 ## 参考
 
